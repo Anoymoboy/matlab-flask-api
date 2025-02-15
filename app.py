@@ -1,10 +1,14 @@
+import os
 from flask import Flask, request, jsonify
-import matlab.engine
 
 app = Flask(__name__)
 
-# Start MATLAB engine
-eng = matlab.engine.start_matlab()
+# Only import MATLAB Engine if running locally
+if os.getenv("MATLAB_LOCAL", "False") == "True":
+    import matlab.engine
+    eng = matlab.engine.start_matlab()
+else:
+    eng = None  # Placeholder
 
 @app.route('/')
 def home():
@@ -16,14 +20,13 @@ def calculate_gear_ratio():
     input_gear = data.get("input_gear")
     output_gear = data.get("output_gear")
 
-    # Convert values to MATLAB format
-    input_gear = matlab.double([input_gear])
-    output_gear = matlab.double([output_gear])
-
-    # Call MATLAB function (to be created next)
-    result = eng.calculate_gear_ratio(input_gear, output_gear)
-
-    return jsonify({"gear_ratio": result})
+    if eng:  # If MATLAB is available locally
+        input_gear = matlab.double([input_gear])
+        output_gear = matlab.double([output_gear])
+        result = eng.calculate_gear_ratio(input_gear, output_gear)
+        return jsonify({"gear_ratio": result})
+    else:  # Running on Render, MATLAB is not available
+        return jsonify({"error": "MATLAB Engine is not available on Render"}), 503
 
 if __name__ == '__main__':
     app.run(debug=True)
